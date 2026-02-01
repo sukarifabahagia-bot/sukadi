@@ -1,0 +1,7 @@
+{
+  "name": "Copy of SKDBEJO SD - Portal Guru",
+  "description": "Aplikasi manajemen kelas PWA untuk Guru SKDBEJO SD Kelas 3 Semester 2 berbasis Kurikulum Merdeka dengan fitur Deep Learning PBL, Visual Visualizer, dan Asesmen 40 soal otomatis.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
