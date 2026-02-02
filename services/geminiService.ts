@@ -2,8 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Material, Quiz, SoloLevel } from "../types";
 
-// Fix: Guideline: Initialize GoogleGenAI with process.env.API_KEY directly and create instance right before use
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safe initialization of AI SDK
+const getAI = () => {
+  const key = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
+  return new GoogleGenAI({ apiKey: key });
+};
 
 export const generateDeepLearningMaterial = async (topic: string, subject: string): Promise<Material> => {
   const ai = getAI();
@@ -16,7 +19,6 @@ export const generateDeepLearningMaterial = async (topic: string, subject: strin
     Tugas: Berikan penjabaran materi yang sangat lengkap, jelas, dan mudah dipahami anak usia 8-9 tahun. Jelaskan langkah demi langkah.`,
     config: { 
       responseMimeType: "application/json",
-      // Fix: Guideline: Use responseSchema for robust JSON extraction
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -37,7 +39,6 @@ export const generateDeepLearningMaterial = async (topic: string, subject: strin
   
   let imageUrl = "";
   try {
-    // Fix: Guideline: Use gemini-2.5-flash-image for default image generation task
     const imageResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { 
@@ -46,7 +47,6 @@ export const generateDeepLearningMaterial = async (topic: string, subject: strin
       config: { imageConfig: { aspectRatio: "16:9" } }
     });
 
-    // Fix: Guideline: Iterate through response parts to find image data
     if (imageResponse.candidates?.[0]?.content?.parts) {
       for (const part of imageResponse.candidates[0].content.parts) {
         if (part.inlineData) {
@@ -80,7 +80,6 @@ export const generateCompleteAssessment = async (topic: string, subject: string)
     3. 5 soal Isian Singkat - Type: FILL_IN`,
     config: { 
       responseMimeType: "application/json",
-      // Fix: Guideline: Use responseSchema for predictable JSON output
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -125,7 +124,6 @@ export const generateAdminDoc = async (type: 'CP' | 'TP' | 'ATP' | 'MODUL_AJAR',
         model: 'gemini-3-flash-preview',
         contents: prompt,
     });
-    // Fix: Guideline: Use .text property directly
     return response.text || "";
 };
 
@@ -136,7 +134,6 @@ export const generateSoloQuiz = async (material: Material): Promise<Quiz> => {
     contents: `Buat 4 soal kuis SOLO Taxonomy singkat untuk: ${material.title}.`,
     config: { 
       responseMimeType: "application/json",
-      // Fix: Guideline: Explicit responseSchema for structured data
       responseSchema: {
         type: Type.ARRAY,
         items: {
