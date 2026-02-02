@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, AttendanceRecord, AssessmentScore } from './types';
-import { loadData, saveData } from './services/storage';
+import { loadLocalData, saveLocalData, fetchCloudData, syncToCloud } from './services/storage';
 import Layout from './components/Layout';
 import PasswordGuard from './components/PasswordGuard';
 import DashboardPage from './pages/Dashboard';
@@ -13,10 +13,31 @@ import AssessmentResultsPage from './pages/AssessmentResults';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [state, setState] = useState<AppState>(loadData());
+  const [state, setState] = useState<AppState>(loadLocalData());
+  const [isSyncing, setIsSyncing] = useState(false);
 
+  // Load Cloud Data on startup
   useEffect(() => {
-    saveData(state);
+    const initCloud = async () => {
+      const cloudData = await fetchCloudData();
+      if (cloudData && cloudData.students && cloudData.students.length > 0) {
+        setState(cloudData);
+        saveLocalData(cloudData);
+      }
+    };
+    initCloud();
+  }, []);
+
+  // Save to Local and Cloud whenever state changes
+  useEffect(() => {
+    saveLocalData(state);
+    
+    // Debounce cloud sync to avoid hitting limits
+    const timeout = setTimeout(() => {
+      syncToCloud(state);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
   }, [state]);
 
   const updateAttendance = (record: AttendanceRecord) => {
@@ -65,7 +86,14 @@ const App: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderContent()}
+      <div className="relative">
+        {/* Sync Indicator */}
+        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 bg-white/80 backdrop-blur px-3 py-1 rounded-full border border-slate-100 shadow-sm pointer-events-none opacity-50">
+           <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+           <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">Cloud Sync Active</span>
+        </div>
+        {renderContent()}
+      </div>
     </Layout>
   );
 };
