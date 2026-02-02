@@ -3,7 +3,8 @@ import { AppState, Student, AttendanceRecord, AssessmentScore } from '../types';
 
 const STORAGE_KEY = 'SKDBEJO_DATA_V1';
 // GANTI URL DI BAWAH INI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT ANDA
-const CLOUD_API_URL = ''; 
+// Fix: Explicitly typing as string to avoid inference as literal '' which leads to 'never' type in unreachable logic branches
+const CLOUD_API_URL: string = ''; 
 
 const generate35Students = (): Student[] => {
   const names = [
@@ -29,18 +30,27 @@ const INITIAL_STATE: AppState = {
 };
 
 export const loadLocalData = (): AppState => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : INITIAL_STATE;
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : INITIAL_STATE;
+  } catch (e) {
+    return INITIAL_STATE;
+  }
 };
 
 export const saveLocalData = (state: AppState) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Local save failed", e);
+  }
 };
 
 export const fetchCloudData = async (): Promise<AppState | null> => {
-  if (!CLOUD_API_URL) return null;
+  if (!CLOUD_API_URL || CLOUD_API_URL.trim() === '') return null;
   try {
     const response = await fetch(CLOUD_API_URL);
+    if (!response.ok) return null;
     const data = await response.json();
     return data;
   } catch (error) {
@@ -50,15 +60,14 @@ export const fetchCloudData = async (): Promise<AppState | null> => {
 };
 
 export const syncToCloud = async (state: AppState) => {
-  if (!CLOUD_API_URL) return;
+  if (!CLOUD_API_URL || CLOUD_API_URL.trim() === '') return;
   try {
     await fetch(CLOUD_API_URL, {
       method: 'POST',
-      mode: 'no-cors', // Apps Script requires no-cors for simple posts or careful handling
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'SYNC_ALL', data: state })
     });
-    console.log("Cloud Sync Triggered");
   } catch (error) {
     console.error("Cloud Sync Error:", error);
   }

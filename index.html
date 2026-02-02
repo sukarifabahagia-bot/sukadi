@@ -7,6 +7,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SKDBEJO SD - Portal Guru Kelas 3</title>
+    <script>
+      // Shim process.env untuk mencegah crash pada SDK yang diekspor sebagai ES Module
+      window.process = {
+        env: {
+          API_KEY: "" // Akan diisi otomatis oleh environment variable di Vercel/System
+        }
+      };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlNLREJFSk8gU0QiLAogICJzaG9ydF9uYW1lIjogIlNLREJFSk8iLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2Y4ZmFmYyIsCiAgInRoZW1lX2NvbG9yIjogIiMxZTQwYWYiCn0=">
 <script type="importmap">
@@ -26,15 +34,8 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
   }
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  /* Hide scrollbar for IE, Edge and Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 </head>
 <body class="bg-[#F8FAFF] text-slate-900">

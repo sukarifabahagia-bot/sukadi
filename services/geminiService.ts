@@ -2,48 +2,61 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Material, Quiz, SoloLevel } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fix: Guideline: Initialize GoogleGenAI with process.env.API_KEY directly and create instance right before use
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateDeepLearningMaterial = async (topic: string, subject: string): Promise<Material> => {
+  const ai = getAI();
   const textResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Buatlah materi pembelajaran mendalam (Deep Learning - PBL) untuk siswa Kelas 3 SD Fase B.
     Mata Pelajaran: ${subject}
     Topik: ${topic}
 
-    Tugas: Berikan penjabaran materi yang sangat lengkap, jelas, dan mudah dipahami anak usia 8-9 tahun. Jelaskan langkah demi langkah.
-    
-    Format JSON:
-    {
-      "title": "Judul Menarik",
-      "narrative": "Satu baris narasi cerita pendek pembuka yang sangat kuat dan kontekstual",
-      "detailedExplanation": "Berikan penjelasan panjang (minimal 3 paragraf) yang menjabarkan materi secara detail, menggunakan bahasa yang ramah anak, berikan contoh konkret dalam kehidupan sehari-hari.",
-      "problemScenario": "Masalah nyata yang menantang siswa untuk berpikir kritis (Deep Learning)",
-      "concepts": ["konsep 1", "konsep 2", "konsep 3"],
-      "summary": "Kesimpulan singkat berupa poin-poin agar siswa mudah mengingat",
-      "imagePrompt": "Detailed 2D cartoon educational illustration prompt about ${topic} for 8 year old kids, vibrant colors, clear background"
-    }`,
-    config: { responseMimeType: "application/json" }
+    Tugas: Berikan penjabaran materi yang sangat lengkap, jelas, dan mudah dipahami anak usia 8-9 tahun. Jelaskan langkah demi langkah.`,
+    config: { 
+      responseMimeType: "application/json",
+      // Fix: Guideline: Use responseSchema for robust JSON extraction
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          narrative: { type: Type.STRING },
+          detailedExplanation: { type: Type.STRING },
+          problemScenario: { type: Type.STRING },
+          concepts: { type: Type.ARRAY, items: { type: Type.STRING } },
+          summary: { type: Type.STRING },
+          imagePrompt: { type: Type.STRING }
+        },
+        required: ["title", "narrative", "detailedExplanation", "problemScenario", "concepts", "summary", "imagePrompt"]
+      }
+    }
   });
 
-  const parsed = JSON.parse(textResponse.text);
+  const parsed = JSON.parse(textResponse.text || "{}");
   
   let imageUrl = "";
   try {
+    // Fix: Guideline: Use gemini-2.5-flash-image for default image generation task
     const imageResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: [{ text: `High-quality educational 2D vector cartoon for 3rd grade students: ${parsed.imagePrompt}. Use bright friendly colors.` }],
+      contents: { 
+        parts: [{ text: `High-quality educational 2D vector cartoon for 3rd grade students: ${parsed.imagePrompt}. Use bright friendly colors.` }] 
+      },
       config: { imageConfig: { aspectRatio: "16:9" } }
     });
 
-    for (const part of imageResponse.candidates[0].content.parts) {
-      if (part.inlineData) {
-        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-        break;
+    // Fix: Guideline: Iterate through response parts to find image data
+    if (imageResponse.candidates?.[0]?.content?.parts) {
+      for (const part of imageResponse.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
       }
     }
   } catch (e) {
-    console.error("Image failed", e);
+    console.error("Image generation failed", e);
   }
 
   return {
@@ -54,6 +67,7 @@ export const generateDeepLearningMaterial = async (topic: string, subject: strin
 };
 
 export const generateCompleteAssessment = async (topic: string, subject: string): Promise<any[]> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Buatlah paket asesmen kurikulum merdeka untuk Kelas 3 SD Fase B.
@@ -63,23 +77,39 @@ export const generateCompleteAssessment = async (topic: string, subject: string)
     TOTAL 40 SOAL:
     1. 25 soal PG Tunggal (A-D) - Type: SINGLE
     2. 10 soal PG Bertingkat (SOLO Taxonomy) - Type: GRADED
-    3. 5 soal Isian Singkat - Type: FILL_IN
-
-    Format JSON:
-    {
-      "questions": [
-        { "text": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "type": "SINGLE" },
-        { "text": "...", "options": ["A", "B", "C", "D"], "correctIndex": 0, "type": "GRADED", "level": "Relational" },
-        { "text": "...", "correctAnswer": "jawaban", "type": "FILL_IN" }
-      ]
-    }`,
-    config: { responseMimeType: "application/json" }
+    3. 5 soal Isian Singkat - Type: FILL_IN`,
+    config: { 
+      responseMimeType: "application/json",
+      // Fix: Guideline: Use responseSchema for predictable JSON output
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          questions: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING },
+                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                correctIndex: { type: Type.NUMBER },
+                correctAnswer: { type: Type.STRING },
+                type: { type: Type.STRING },
+                level: { type: Type.STRING }
+              },
+              required: ["text", "type"]
+            }
+          }
+        },
+        required: ["questions"]
+      }
+    }
   });
 
-  return JSON.parse(response.text).questions;
+  return JSON.parse(response.text || "{}").questions || [];
 };
 
 export const generateAdminDoc = async (type: 'CP' | 'TP' | 'ATP' | 'MODUL_AJAR', subject: string, chapter: string, topic: string): Promise<string> => {
+    const ai = getAI();
     const prompt = `Susunlah dokumen administrasi ${type} Kurikulum Merdeka (Fase B Kelas 3 SD).
     Mata Pelajaran: ${subject}
     Bab: ${chapter}
@@ -95,19 +125,38 @@ export const generateAdminDoc = async (type: 'CP' | 'TP' | 'ATP' | 'MODUL_AJAR',
         model: 'gemini-3-flash-preview',
         contents: prompt,
     });
-    return response.text;
-}
+    // Fix: Guideline: Use .text property directly
+    return response.text || "";
+};
 
 export const generateSoloQuiz = async (material: Material): Promise<Quiz> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Buat 4 soal kuis SOLO Taxonomy singkat untuk: ${material.title}.`,
-    config: { responseMimeType: "application/json" }
+    config: { 
+      responseMimeType: "application/json",
+      // Fix: Guideline: Explicit responseSchema for structured data
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            question: { type: Type.STRING },
+            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+            correctAnswer: { type: Type.NUMBER },
+            soloLevel: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+          },
+          required: ["question", "options", "correctAnswer", "soloLevel", "explanation"]
+        }
+      }
+    }
   });
 
   return {
     id: Date.now().toString(),
     materialId: material.id,
-    questions: JSON.parse(response.text)
+    questions: JSON.parse(response.text || "[]")
   };
 };
